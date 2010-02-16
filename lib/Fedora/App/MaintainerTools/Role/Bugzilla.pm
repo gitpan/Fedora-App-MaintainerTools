@@ -1,12 +1,12 @@
 #############################################################################
 #
-# Update a Perl RPM spec with the latest GA in the CPAN
+# Simple role to provide access to Bugzilla
 #
 # Author:  Chris Weyl (cpan:RSRCHBOY), <cweyl@alumni.drew.edu>
 # Company: No company, personal work
-# Created: 05/12/2009 09:54:18 PM PDT
+# Created: 06/16/2009
 #
-# Copyright (c) 2009 Chris Weyl <cweyl@alumni.drew.edu>
+# Copyright (c) 2009-2010  <cweyl@alumni.drew.edu>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -15,39 +15,29 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Plugin::Last;
+package Fedora::App::MaintainerTools::Role::Bugzilla;
 
-use strict;
-use warnings;
+use Moose::Role;
+use MooseX::Types::Moose ':all';
+use namespace::autoclean;
 
-use autodie qw{ system };
+our $VERSION = '0.002';
 
-our $VERSION = '0.001';
+has _bz => (
+    # FIXME -- need a better type
+    is => 'ro', isa => Object, lazy_build => 1,
+    #handles => [ qw{ plugins call_plugins } ],
+);
 
-#############################################################################
-# order
+sub _build__bz { Fedora::Bugzilla->new }
 
-sub _order { 95 }
+before run => sub {
 
-#############################################################################
-# event: perl_spec_update 
-
-sub perl_spec_update_order { 95 }
-
-sub perl_spec_update {
-    my ($self, $data) = @_;
-
-    $data->log->info('In plugin: Last');
-
-    $data->log->debug('Updating changelog...');
-    my @lines = @{ $data->content };
-    @lines = map { /^%changelog/ ? (@{ $data->changelog }, q{}) : $_ } @lines;
-    
-    $data->content(\@lines);
-    return;
-}    
-
-
+    Class::MOP::load_class($_) for qw{
+        Fedora::Bugzilla
+        Text::SimpleTable
+    };
+};
 
 1;
 
@@ -55,28 +45,20 @@ __END__
 
 =head1 NAME
 
-Fedora::App::MaintainerTools::Plugin::Last - Last things last
+Fedora::App::MaintainerTools::Role::Bugzilla - Role to access Bugzilla
 
 =head1 DESCRIPTION
 
-This plugin runs last, and at the moment, handles updating the changelog.
-
-=head1 PLUGIN ORDER
-
-95.
-
-=head1 SEE ALSO
-
-L<Fedora::App::MaintainerTools>
+This is a L<Moose::Role> that command classes should consume in order to
+access Bugzilla.
 
 =head1 AUTHOR
 
 Chris Weyl  <cweyl@alumni.drew.edu>
 
-
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2009 Chris Weyl <cweyl@alumni.drew.edu>
+Copyright (c) 2009  <cweyl@alumni.drew.edu>
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
@@ -89,7 +71,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the 
+License along with this library; if not, write to the
 
     Free Software Foundation, Inc.
     59 Temple Place, Suite 330

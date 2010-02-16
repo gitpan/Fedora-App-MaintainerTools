@@ -1,5 +1,7 @@
 use inc::Module::Install;
 
+githubmeta;
+
 name     'Fedora-App-MaintainerTools';
 all_from 'lib/Fedora/App/MaintainerTools.pm';
 author   'Chris Weyl <cweyl@alumni.drew.edu>';
@@ -24,12 +26,20 @@ requires 'CPANPLUS::Backend';
 requires 'DateTime';
 requires 'File::Copy';
 requires 'Path::Class';
-requires 'RPM::Spec';
+requires 'RPM::Spec' => '0.03';
+requires 'RPM::VersionSort';
 requires 'YAML::Tiny';
+requires 'Pod::POM';
+requires 'Pod::POM::View::Text';
+requires 'Software::LicenseUtils';
+
+# for ftbfs, etc
+requires 'Fedora::Bugzilla' => '0.13';
 
 test_requires 'Test::More';
 
 install_script 'scripts/maintainertool';
+install_share;
 
 extra_tests;
 auto_provides;

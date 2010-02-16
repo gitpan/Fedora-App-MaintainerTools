@@ -18,37 +18,48 @@
 package Fedora::App::MaintainerTools::UpdateData;
 
 use Moose;
+use namespace::autoclean;
 use MooseX::AttributeHelpers;
+use MooseX::Types::Moose ':all';
+use MooseX::Types::URI   ':all';
 
 use Fedora::App::MaintainerTools::Types ':all';
 
-use English qw{ -no_match_vars };  # Avoids regex performance penalty
+#use English qw{ -no_match_vars };  # Avoids regex performance penalty
 
 use autodie qw{ system };
 
 use CPAN::MetaMuncher;
+use Config::Tiny;
 use DateTime;
 use File::Copy qw{ cp };
 use List::MoreUtils qw{ any };
 use Path::Class;
 use RPM::VersionSort;
 
-use namespace::clean -except => 'meta';
-
 with 'MooseX::Log::Log4perl';
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 # debugging
 #use Smart::Comments '###', '####';
 
-has spec => (is => 'ro', isa => 'RPM::Spec', required => 1);
+has conf => (is => 'rw', isa => 'Config::Tiny', lazy_build => 1);
+# FIXME
+sub _build_conf { Config::Tiny->read('auto.ini') || Config::Tiny->new }
 
-has dist => (is => 'ro', isa => 'Str', lazy_build => 1);
+has spec => (
+    is => 'ro', isa => 'RPM::Spec', required => 1,
+    # FIXME
+    handles => [ qw{ license name summary } ],
+    #handles => [ qw{ license name } ],
+);
+has dist => (is => 'ro', isa => 'Str', lazy_build => 1 );
 
 sub _build_dist { 
     my $self = shift @_;
     
+    # FIXME we should really allow for overrides here
     my $j = $self->spec->name;
     $j =~ s/^perl-//; 
     $j =~ s/\s+$//;
@@ -57,15 +68,43 @@ sub _build_dist {
 }
 
 has packager => (is => 'rw', isa => 'Str', lazy_build => 1);
-sub _build_packager { my $p = `rpm --eval '%packager'`; chomp $p; $p }
+sub _build_packager { chomp(my $p = `rpm --eval '%packager'`); $p }
 
-has cpan_meta => (is => 'ro', isa => 'CPAN::MetaMuncher', lazy_build => 1);
+has cpan_meta => (
+    is => 'ro', isa => 'CPAN::MetaMuncher', lazy_build => 1,
+    handles => [ 'version' ],
+);
 has cpanp     => (is => 'ro', isa => CPBackend, lazy_build => 1);
 has module    => (is => 'ro', isa => CPModule,  lazy_build => 1);
 
 sub _build_cpan_meta { CPAN::MetaMuncher->new(module => shift->module)     }
 sub _build_cpanp  { require CPANPLUS::Backend; CPANPLUS::Backend->new       }
 sub _build_module { my $s = shift; $s->cpanp->parse_module(module => $s->dist) }
+
+has release => (is => 'rw', isa => Int, lazy_build => 1);
+has source0 => (is => 'rw', isa => Str, lazy_build => 1);
+has epoch   => (is => 'rw', isa => Int, lazy_build => 1);
+sub _build_release { 1 }
+sub _build_source0 { shift->spec->source0 }
+sub _build_epoch   { shift->spec->epoch || 0}
+
+has middle  => (
+    metaclass => 'Collection::Array',
+    is => 'rw', lazy_build => 1, isa => 'ArrayRef[Str]',
+
+    provides => { elements => 'all_middle' },
+);
+
+sub _build_middle  { [ shift->spec->middle ] }
+
+has is_noarch => (is => 'rw', isa => Bool, lazy_build => 1);
+
+sub _build_is_noarch {
+    my $self = shift @_;
+
+    my $files = $self->module->parent->status->files;
+    return do { first { /\.(c|xs)$/i } @$files } ? 0 : 1;
+}
 
 
 has changelog => (
@@ -83,6 +122,55 @@ has changelog => (
         unshift => 'prepend_changelog',
     },
 );
+
+has spec_build_requires => (
+    metaclass => 'Collection::Hash',
+
+    is         => 'ro',
+    isa        => 'HashRef',
+    lazy_build => 1,
+
+    provides => {
+        'empty'  => 'has_build_requires',
+        'exists' => 'has_build_require',
+        'get'    => 'build_require_version',
+        'set'    => 'build_require_this',
+        'count'  => 'num_build_requires',
+        'keys'   => 'build_requires',
+        'delete' => 'remove_build_require_on',
+        # set, etc...?
+    },
+);
+
+sub _build_spec_build_requires { shift->spec->_build_requires }
+
+has spec_requires => (
+    metaclass => 'Collection::Hash',
+
+    is         => 'ro',
+    isa        => 'HashRef',
+    lazy_build => 1,
+
+    provides => {
+        'empty'  => 'has_requires',
+        'exists' => 'has_require',
+        'get'    => 'require_version',
+        'count'  => 'num_requires',
+        'keys'   => 'requires',
+        'set'    => 'require_this',
+        # set, etc...?
+    },
+);
+
+sub _build_spec_requires {
+
+    # FIXME
+    my $x = shift->spec->_requires;
+    #delete $x->{'perl(:MODULE_COMPAT_%(eval >= -V:version`";'};
+    do { delete $x->{$_} if $_ =~ /perl\(:MODULE_COMPAT/ }
+        for keys %$x;
+    return $x;
+}
 
 has content => (is => 'rw', isa => 'ArrayRef[Str]', lazy_build => 1);
 # grap a copy, strip tail whitespace

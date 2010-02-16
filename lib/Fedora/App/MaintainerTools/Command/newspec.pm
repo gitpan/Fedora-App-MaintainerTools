@@ -15,66 +15,66 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Plugin::FedoraBits;
+package Fedora::App::MaintainerTools::Command::newspec;
 
-use strict;
-use warnings;
+use Moose;
+use MooseX::Types::Moose ':all';
+use MooseX::Types::Path::Class ':all';
+use namespace::autoclean;
+use Path::Class;
 
-use autodie qw{ system };
+extends 'MooseX::App::Cmd::Command';
+with 'Fedora::App::MaintainerTools::Role::Template';
 
-our $VERSION = '0.001';
+# classes we need but don't want to load a compile-time
+my @CLASSES = qw{
+    DateTime
+    Fedora::App::MaintainerTools::SpecData::New
+};
 
-#############################################################################
-# order
+our $VERSION = '0.002';
 
-sub _order { 90 }
+has package => (is => 'ro', isa => Bool, default => 0);
 
-#############################################################################
-# event: perl_spec_update 
+sub command_names { 'new-spec' }
 
-sub perl_spec_update_order { 90 }
+sub run {
+    my ($self, $opt, $args) = @_;
 
-sub perl_spec_update {
-    my ($self, $data) = @_;
+    $self->app->log->info('Beginning new-spec run.');
 
-    # ... we do nothing at the moment
-    $data->log->info('In plugin: FedoraBits');
+    Class::MOP::load_class($_) for @CLASSES;
 
-    #if (file('Makefile')->stat) {
-    #if (-e 'Makefile') {
-    if (0) {
+    for my $pkg (@$args) {
 
-        warn "Copying new tarball over...\n";
-        my $tarball = file($m->status->fetch)->basename;
-        #my $cmd = "cd $pwd && make new-source FILES=" . $to->basename . ' 1>&2';
-        my $cmd = "cd $pwd && make new-source FILES=$tarball 1>&2";
-        warn "executing: $cmd\n";
-        system $cmd; 
+        # FIXME this might not be the best approach.
+        $pkg =~ s/::/-/g;
+
+        my $data =
+            Fedora::App::MaintainerTools::SpecData::New->new(dist => $pkg);
+
+        print $data->output;
     }
 
     return;
-}    
+}
 
-
-1;
+__PACKAGE__->meta->make_immutable;
 
 __END__
 
 =head1 NAME
 
-<Module::Name> - <One line description of module's purpose>
+Fedora::App::MaintainerTools::Command::updatespec - Update a spec to latest GA version from the CPAN
 
 =head1 DESCRIPTION
 
-This plugin handles Fedora-specific bits of updating a spec file.
+Updates a spec file with metadata from the CPAN.
 
-=head1 PLUGIN ORDER
-
-90.
 
 =head1 SEE ALSO
 
-L<Fedora::App::MaintainerTools>>
+L<Fedora::App::MaintainerTools>
 
 =head1 AUTHOR
 
@@ -96,7 +96,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the 
+License along with this library; if not, write to the
 
     Free Software Foundation, Inc.
     59 Temple Place, Suite 330

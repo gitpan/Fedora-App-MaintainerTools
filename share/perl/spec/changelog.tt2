@@ -1,0 +1,5 @@
+%changelog
+* [% rpm_date %] [% data.packager %] [% data.version %]-[% data.release %]
+[% data.changelog.join("\n") %]
+
+[% data.spec.changelog.join("\n") -%]

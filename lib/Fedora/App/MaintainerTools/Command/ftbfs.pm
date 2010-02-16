@@ -1,6 +1,6 @@
 #############################################################################
 #
-# Update a Perl RPM spec with the latest GA in the CPAN
+# Work with updates (typically Bodhi)
 #
 # Author:  Chris Weyl (cpan:RSRCHBOY), <cweyl@alumni.drew.edu>
 # Company: No company, personal work
@@ -15,48 +15,63 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Command::updatespec; 
+package Fedora::App::MaintainerTools::Command::ftbfs;
+
+use 5.010;
 
 use Moose;
-use MooseX::Types::Moose ':all';
-use MooseX::Types::Path::Class ':all';
 use namespace::autoclean;
-use Path::Class;
+use Fedora::App::MaintainerTools::UpdateData;
+use IO::Prompt;
 
-extends 'MooseX::App::Cmd::Command'; 
-with 'Fedora::App::MaintainerTools::Role::Template';
+extends 'MooseX::App::Cmd::Command';
+with 'Fedora::App::MaintainerTools::Role::Bugzilla';
 
-# classes we need but don't want to load a compile-time
-my @CLASSES = qw{
-    DateTime
-    RPM::Spec
-    Fedora::App::MaintainerTools::SpecData::Update
-};
+# debugging
+#use Smart::Comments '###', '####';
 
 our $VERSION = '0.002';
-
-has package => (is => 'ro', isa => Bool, default => 0);
-
-sub command_names { 'update-spec' }
 
 sub run {
     my ($self, $opt, $args) = @_;
 
-    $self->app->log->info('Beginning update-spec run.');
-
-    Class::MOP::load_class($_) for @CLASSES;
-
-    for my $pkg (@$args) {
-
-        my $data =
-            Fedora::App::MaintainerTools::SpecData::Update->new(
-                spec => RPM::Spec->new(specfile => "$pkg"),
-            );
-
-        print $data->output;
-    }
+    my $bugs = $self->find_my_ftbfs_bugs;
+    $bugs->aggressive(0);
+    print to_table($bugs);
 
     return;
+}
+
+# https://bugzilla.redhat.com/buglist.cgi?emailtype2=notequals&emailreporter1=1&classification=Fedora&emailtype1=exact&query_format=advanced&bug_status=NEW&bug_status=ASSIGNED&email2=ftbfs%40fedoraproject.org&email1=ftbfs%40fedoraproject.org&emailassigned_to2=1&product=Fedora
+
+sub find_my_ftbfs_bugs {
+    my $self = shift @_;
+
+    my $bugs = $self->_bz->search(
+        product    => 'Fedora',
+        version    => 'rawhide',
+        bug_status => 'NEW,ASSIGNED',
+        # FIXME
+        #assigned_to   => $self->userid,
+        assigned_to   => $self->_bz->userid,
+        reporter => 'ftbfs@fedoraproject.org',
+    );
+
+    ### $bugs
+    return $bugs;
+}
+
+sub to_table {
+    my $bugs = shift @_;
+
+    my $t = Text::SimpleTable->new(
+        [ 6, 'ID' ],
+        [ 40, 'Component' ],
+        [ 20, 'Date Filed' ],
+    );
+
+    $t->row("$_", $_->component, $_->creation_time) for $bugs->bugs;
+    return $t->draw;
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -65,12 +80,7 @@ __END__
 
 =head1 NAME
 
-Fedora::App::MaintainerTools::Command::updatespec - Update a spec to latest GA version from the CPAN
-
-=head1 DESCRIPTION
-
-Updates a spec file with metadata from the CPAN.
-
+Fedora::App::MaintainerTools::Command::ftbfs - work with FTBFS bugs
 
 =head1 SEE ALSO
 
@@ -79,7 +89,6 @@ L<Fedora::App::MaintainerTools>
 =head1 AUTHOR
 
 Chris Weyl  <cweyl@alumni.drew.edu>
-
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -96,13 +105,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the 
+License along with this library; if not, write to the
 
     Free Software Foundation, Inc.
     59 Temple Place, Suite 330
     Boston, MA  02111-1307  USA
 
 =cut
-
-
 
