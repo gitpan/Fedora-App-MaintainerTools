@@ -19,14 +19,16 @@ requires 'Moose';
 requires 'MooseX::App::Cmd';
 requires 'MooseX::AttributeHelpers';
 requires 'MooseX::Log::Log4perl';
+requires 'MooseX::Traits' => '0.08';
 requires 'MooseX::Types';
 requires 'MooseX::Types::Path::Class';
 
 requires 'CPANPLUS::Backend';
 requires 'DateTime';
 requires 'File::Copy';
+requires 'File::Slurp';
 requires 'Path::Class';
-requires 'RPM::Spec' => '0.03';
+requires 'RPM::Spec' => '0.04';
 requires 'RPM::VersionSort';
 requires 'YAML::Tiny';
 requires 'Pod::POM';

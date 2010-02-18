@@ -15,33 +15,48 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Role::Template;
+package Fedora::App::MaintainerTools::Role::SpecUtils;
 
 use Moose::Role;
-use MooseX::Types::Moose ':all';
-use MooseX::Types::Path::Class ':all';
 use namespace::autoclean;
-use Path::Class;
+use MooseX::Types::Moose ':all';
+
+use MooseX::Traits::Util 'new_class_with_traits';
+
+# debugging
+#use Smart::Comments '###', '####';
 
 our $VERSION = '0.003';
 
-has share_dir => (is => 'ro', isa => Dir, coerce => 1, lazy_build => 1);
-has _tt2      => (is => 'ro', isa => Object, lazy_build => 1);
+requires '_specdata_base_class';
 
-sub _build__tt2 {
-    Class::MOP::load_class('Template');
-    return Template->new({ INCLUDE_PATH => shift->share_dir });
-}
+has _specdata_class =>  (is => 'rw', isa => Str, lazy_build => 1);
+has _specdata_traits => (is => 'rw', isa => 'ArrayRef[Str]', lazy_build => 1);
 
-sub _build_share_dir {
+sub _build__specdata_traits {
     my $self = shift @_;
 
-    my $dir = dir qw{ .. share };
+    Class::MOP::load_class('Module::Find');
 
-    return $dir->absolute if $dir->stat;
+    #my $class = 'Fedora::App::MaintainerTools::SpecData::New';
+    my $class = $self->_specdata_base_class;
+    my @traits = Module::Find::findsubmod($class.'::Traits');
 
-    Class::MOP::load_class('File::ShareDir');
-    return File::ShareDir::dist_dir('Fedora-App-MaintainerTools');
+    ### $class
+    ### @traits
+    return \@traits;
+}
+
+sub _build__specdata_class {
+    my $self = shift @_;
+
+    return
+        new_class_with_traits(
+            $self->_specdata_base_class,
+            @{ $self->_specdata_traits },
+        )
+        ->name
+        ;
 }
 
 1;
@@ -50,13 +65,14 @@ __END__
 
 =head1 NAME
 
-Fedora::App::MaintainerTools::Role::Template - Command role to access
-templates and our sharedir
+Fedora::App::MaintainerTools::Role::SpecUtils - Command role to get our data
+class
 
 =head1 DESCRIPTION
 
 This is a L<Moose::Role> that command classes should consume in order to
-access templates.
+properly create other classes with traits (that is, create certain classes of
+ours with plugins/extensions pulled in dynamically).
 
 =head1 AUTHOR
 
@@ -64,7 +80,7 @@ Chris Weyl  <cweyl@alumni.drew.edu>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2009  <cweyl@alumni.drew.edu>
+Copyright (c) 2010 <cweyl@alumni.drew.edu>
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
