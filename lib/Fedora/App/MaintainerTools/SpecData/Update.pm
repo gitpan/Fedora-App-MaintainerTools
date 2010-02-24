@@ -27,10 +27,11 @@ use Path::Class;
 use Pod::POM;
 use Pod::POM::View::Text;
 use Text::Autoformat;
+use RPM::VersionSort;
 
 extends 'Fedora::App::MaintainerTools::SpecData';
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 # debugging
 #use Smart::Comments '###', '####';
@@ -46,7 +47,7 @@ sub _build_version { shift->mm->data->{version} }
 sub _build_summary { shift->spec->summary }
 sub _build_url     { shift->spec->url }
 
-sub _build_dist    { (my $s = shift->name) =~ s/^perl-//; $s }
+sub _build_dist    { (my $_ = shift->name) =~ s/^perl-//; s/\s*$//; $_ }
 
 sub _build__changelog {
     [ "- update by Fedora::App::MaintainerTools $Fedora::App::MaintainerTools::VERSION" ]
@@ -57,6 +58,37 @@ sub _build__changelog {
 
 # these are pretty much just pulled over from the old Plugins system...  They
 # need refactoring, but work for now.
+
+sub _build_epoch   {
+    my $self = shift @_;
+
+    my $epoch = $self->spec->epoch;
+
+    ##############################################################
+    # epoch checking
+
+    my ($old_v, $v) = ($self->spec->version, $self->version);
+
+    if (rpmvercmp($old_v, $v) == 1) {
+
+        # rpm is going to think that the old version is larger than the new
+        # one, so we're going to need to fiddle with the epoch here
+        if ($epoch) {
+
+            $epoch++;
+            #@lines = map { /^Epoch:/i && $_ =~ s/\S+$/$e/; $_ } @lines;
+            $self->add_changelog("- Bump epoch to $epoch ($old_v => $v)");
+        }
+        else {
+
+            #@lines = map { /^Version:/i ? ('Epoch: 1', $_) : $_ } @lines;
+            $epoch = 1;
+            $self->add_changelog("- Add epoch of 1 ($old_v => $v)");
+        }
+    }
+
+    return $epoch;
+}
 
 sub _build__build_requires {
     #my ($self, $data) = @_;
@@ -176,16 +208,16 @@ sub _build__requires {
         # if we're here, it's a new BR
         $require{$r} = $new;
         push @cl, "- added a new req on $r (version $new)";
-        $self->add_changelog("- added a new req on $r (version $new)");
+        #$self->add_changelog("- added a new req on $r (version $new)");
     }
 
-    # delete stale build requirements
+    # delete stale requirements
     PURGE_R_LOOP:
-    #for my $req ($data->requires) {
     for my $req (sort keys %require) {
 
         # make sure it's a _perl_ requires
         next PURGE_R_LOOP unless $req =~ /^perl\(/;
+        next PURGE_R_LOOP if exists $self->conf->{add_requires}->{$req};
 
         # check to see META.yml lists it as a dep.  if not, purge.
         unless ($mm->has_rpm_require_on($req)) {
@@ -193,6 +225,16 @@ sub _build__requires {
             delete $require{$req};
             push @cl, "- dropped old requires on $req";
         }
+    }
+
+    for my $manual_req (keys %{$self->conf->{add_requires}}) {
+
+        # FIXME should check versioning too
+        next if exists $require{$manual_req};
+
+        my $ver = $self->conf->{add_requires}->{$manual_req};
+        $require{$manual_req} = $ver;
+        push @cl, "- added manual requires on $manual_req";
     }
 
     $self->add_changelog(@cl);

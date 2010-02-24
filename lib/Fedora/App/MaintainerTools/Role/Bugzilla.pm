@@ -21,7 +21,7 @@ use Moose::Role;
 use MooseX::Types::Moose ':all';
 use namespace::autoclean;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 has _bz => (
     # FIXME -- need a better type
@@ -31,7 +31,7 @@ has _bz => (
 
 sub _build__bz { Fedora::Bugzilla->new }
 
-before run => sub {
+before execute => sub {
 
     Class::MOP::load_class($_) for qw{
         Fedora::Bugzilla

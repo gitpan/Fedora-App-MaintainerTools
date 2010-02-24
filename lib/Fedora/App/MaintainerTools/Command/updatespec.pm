@@ -21,13 +21,13 @@ use Moose;
 use MooseX::Types::Moose ':all';
 use MooseX::Types::Path::Class ':all';
 use namespace::autoclean;
+use File::Copy 'cp';
 use Path::Class;
 
 extends 'MooseX::App::Cmd::Command'; 
+with 'Fedora::App::MaintainerTools::Role::Logger';
 with 'Fedora::App::MaintainerTools::Role::Template';
 with 'Fedora::App::MaintainerTools::Role::SpecUtils';
-
-sub _specdata_base_class { 'Fedora::App::MaintainerTools::SpecData::Update' }
 
 # classes we need but don't want to load a compile-time
 my @CLASSES = qw{
@@ -36,30 +36,55 @@ my @CLASSES = qw{
     Fedora::App::MaintainerTools::SpecData::Update
 };
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 has package => (is => 'ro', isa => Bool, default => 0);
 
 sub command_names { 'update-spec' }
 
-sub run {
+sub execute {
     my ($self, $opt, $args) = @_;
 
-    $self->app->log->info('Beginning update-spec run.');
-
+    $self->log->info('Beginning update-spec run.');
     Class::MOP::load_class($_) for @CLASSES;
+    my $dir = dir->absolute;
 
     for my $pkg (@$args) {
 
         my $data = $self
-            ->_specdata_class
+            ->_update_spec_class
             ->new(spec => RPM::Spec->new(specfile => "$pkg"))
             ;
 
-        print $data->output;
+        my $tarball = $data->tarball;
+        cp "$tarball" => "$dir";
+
+        if ($self->stdout) {
+
+            print $data->output;
+        }
+        else {
+
+            $data->to_file;
+        }
+
+        $self->_do_fedora_bits($data);
     }
 
     return;
+}
+
+sub _do_fedora_bits {
+    my ($self, $data) = @_;
+
+    # check to see if we have a sources file
+    return unless -f 'sources';
+
+    my $tarball = $data->tarball;
+    system "make new-source FILES='$tarball'";
+    system "cvs diff | colordiff";
+
+    # FIXME koji build bits here...
 }
 
 __PACKAGE__->meta->make_immutable;

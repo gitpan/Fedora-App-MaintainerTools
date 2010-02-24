@@ -21,7 +21,6 @@ use 5.010;
 
 use Moose;
 use namespace::autoclean;
-use Fedora::App::MaintainerTools::UpdateData;
 use IO::Prompt;
 
 extends 'MooseX::App::Cmd::Command';
@@ -30,9 +29,9 @@ with 'Fedora::App::MaintainerTools::Role::Bugzilla';
 # debugging
 #use Smart::Comments '###', '####';
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
-sub run {
+sub execute {
     my ($self, $opt, $args) = @_;
 
     my $bugs = $self->find_my_ftbfs_bugs;

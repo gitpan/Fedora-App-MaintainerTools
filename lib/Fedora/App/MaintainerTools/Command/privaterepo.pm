@@ -1,7 +1,5 @@
 #############################################################################
 #
-# Update a Perl RPM spec with the latest GA in the CPAN
-#
 # Author:  Chris Weyl (cpan:RSRCHBOY), <cweyl@alumni.drew.edu>
 # Company: No company, personal work
 # Created: 05/12/2009 09:54:18 PM PDT
@@ -15,56 +13,107 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Command::newspec;
+package Fedora::App::MaintainerTools::Command::privaterepo;
+
+use 5.010;
 
 use Moose;
+use autodie 'system';
+use namespace::autoclean;
 use MooseX::Types::Moose ':all';
 use MooseX::Types::Path::Class ':all';
-use namespace::autoclean;
-use File::Copy 'cp';
 use Path::Class;
 
-use autodie 'system';
+use English '-no_match_vars';
 
 extends 'MooseX::App::Cmd::Command';
 with 'Fedora::App::MaintainerTools::Role::Logger';
-with 'Fedora::App::MaintainerTools::Role::Template';
-with 'Fedora::App::MaintainerTools::Role::SpecUtils';
+#with 'Fedora::App::MaintainerTools::Role::Template';
+#with 'Fedora::App::MaintainerTools::Role::SpecUtils';
 
 # classes we need but don't want to load a compile-time
 my @CLASSES = qw{
-    DateTime
-    Fedora::App::MaintainerTools::SpecData::New
+	Fedora::App::MaintainerTools::LocalRepo
 };
 
 our $VERSION = '0.004';
 
 has package => (is => 'ro', isa => Bool, default => 0);
+has rebuild => (is => 'ro', isa => Bool, default => 1);
+has hostname => (is => 'rw', isa => Str, lazy_build => 1);
+has repo => (is => 'rw', isa => Str, lazy_build => 1);
 
-sub command_names { 'new-spec' }
+has _repo_config => (is => 'ro', isa => 'HashRef[HashRef]', lazy_build => 1);
+
+sub command_names { 'private-repo' }
 
 sub execute {
     my ($self, $opt, $args) = @_;
 
-    $self->log->info('Beginning new-spec run.');
-
+    $self->log->info('Beginning private-repo run.');
     Class::MOP::load_class($_) for @CLASSES;
 
-    for my $pkg (@$args) {
+	my @files = map { file $_ } @$args;
+	do { die "$_ must exist!\n" if !$_->stat } for @files;
 
-        # FIXME this might not be the best approach.
-        $pkg =~ s/::/-/g;
+	my $reponame = $self->repo;
+	#my %repocfg  = %{ $self->_repo_config->{$reponame} };
+	$self->log->info("Pushing to $reponame");
 
-        my $data = $self->_new_spec_class->new(dist => $pkg);
-            #Fedora::App::MaintainerTools::SpecData::New->new(dist => $pkg);
-
-        #print $data->output;
-        #$data->build_srpm;
-        $self->build_srpm($data);
-        $self->build_rpm($data);
-    }
+	my $repo = Fedora::App::MaintainerTools::LocalRepo
+		->new($self->_repo_config->{$reponame});
+	my $i=0; say $i++;
+	$repo->add_files(@files);
+	say $i++;
+	#$repo->update_local;
+	$repo->update_remote;
+	say $i++;
 
     return;
+}
+
+sub _build_repo { 'default' }
+
+sub _build__repo_config {
+	my $self = shift @_;
+
+	{
+		default => {
+			comment => 'Default on fedorapeople.org',
+			url => 'http://cweyl.fedorapeople.org/repo',
+			remote_target => 'cweyl.fedorapeople.org:public_html/repo',
+			local_dir => "$ENV{HOME}/.maintainertool/repos/default",
+			name => 'default', # FIXME probably a non-optimal way
+		},
+
+	}
+}
+
+sub _build_hostname {
+	my $self = shift @_;
+
+	my $name = getpwent;
+	return "$name.fedorapeople.org";
+}
+
+sub push_to_reviewspace {
+    my $self = shift @_;
+
+    # push to reviewspace...
+    my $cmd = 'scp ' . join(q{ }, @_) . ' ' . $self->hostname . ":public_html/repo"; # $self->remote_loc;
+	#say $cmd;
+    system $cmd;
+
+    #die "Error executing '$cmd'\n\n$?" if $?;
+
+    return;
+}
+
+sub run_repocreate {
+	my $self = shift @_;
+
+	my $host = $self->hostname;
+	my $cmd = "ssh $host ...";
 }
 
 __PACKAGE__->meta->make_immutable;

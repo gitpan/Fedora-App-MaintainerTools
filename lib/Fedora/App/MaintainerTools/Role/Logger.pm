@@ -1,6 +1,6 @@
 #############################################################################
 #
-# Simple role to provide access to the plugin system
+# Simple role to provide access to Bugzilla
 #
 # Author:  Chris Weyl (cpan:RSRCHBOY), <cweyl@alumni.drew.edu>
 # Company: No company, personal work
@@ -15,31 +15,17 @@
 #
 #############################################################################
 
-package Fedora::App::MaintainerTools::Role::Plugins;
+package Fedora::App::MaintainerTools::Role::Logger;
 
 use Moose::Role;
 use MooseX::Types::Moose ':all';
 use namespace::autoclean;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
-#use Fedora::App::MaintainerTools::Types ':all';
-#sub plugin_pkg { 'Fedora::App::MaintainerTools::Plugins' }
+with 'MooseX::Log::Log4perl';
 
-has _plugins => (
-    is => 'ro', isa => Object, lazy_build => 1,
-    handles => [ qw{ plugins call_plugins } ],
-);
-
-sub _build__plugins { Fedora::App::MaintainerTools::Plugins->new }
-
-before run => sub {
-
-    Class::MOP::load_class($_) for qw{
-        Fedora::App::MaintainerTools::Plugins
-        Fedora::App::MaintainerTools::UpdateData
-    };
-};
+## FIXME should do some sort of initialization here
 
 1;
 
@@ -47,21 +33,16 @@ __END__
 
 =head1 NAME
 
-Fedora::App::MaintainerTools::Role::Plugins - Access the plugin system
-
-=head1 SYNOPSIS
-
-use <Module::Name>;
-# Brief but working code example(s) here showing the most common usage(s)
-
-# This section will be as far as many users bother reading
-# so make it as educational and exemplary as possible.
-
+Fedora::App::MaintainerTools::Role::Loggger - Provides logger access
 
 =head1 DESCRIPTION
 
 This is a L<Moose::Role> that command classes should consume in order to
-access the plugin system.
+log messages via L<Log::Log4perl>.
+
+=head1 SEE ALSO
+
+L<Log::Log4perl>
 
 =head1 AUTHOR
 

@@ -21,12 +21,11 @@ use 5.010;
 
 use Moose;
 use namespace::autoclean;
-use Fedora::App::MaintainerTools::UpdateData;
 use IO::Prompt;
 
 extends 'MooseX::App::Cmd::Command';
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 my @CLASSES = qw{
     Fedora::Bodhi
@@ -35,10 +34,12 @@ my @CLASSES = qw{
     DateTime
 };
 
-sub run {
+sub execute {
     my ($self, $opt, $args) = @_;
 
-    #$self->app->log->info('Beginning updatespec run.');
+    #$self->log->info('Beginning updatespec run.');
+
+	die "This command isn't quite unbroken yet.\n";
 
     Class::MOP::load_class($_) for @CLASSES;
 
