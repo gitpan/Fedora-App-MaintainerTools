@@ -35,6 +35,7 @@ with 'Fedora::App::MaintainerTools::Role::Template';
 use CPAN::MetaMuncher;
 use Config::Tiny;
 use DateTime;
+use File::Basename;
 use File::Copy 'cp';
 use File::Slurp;
 use List::Util 'first';
@@ -43,7 +44,7 @@ use Path::Class;
 use RPM::VersionSort;
 use Software::LicenseUtils;
 
-our $VERSION = '0.004';
+our $VERSION = '0.005';
 
 # debugging
 #use Smart::Comments '###', '####';
@@ -93,7 +94,16 @@ has epoch     => (is => 'rw', lazy_build => 1, isa => 'Maybe[Int]');
 has is_noarch => (is => 'rw', lazy_build => 1, isa => Bool);
 has url       => (is => 'rw', lazy_build => 1, isa => Uri, coerce => 1);
 has license   => (is => 'rw', lazy_build => 1, isa => Str);
-has docfiles  => (is => 'rw', lazy_build => 1, isa => 'ArrayRef[Str]');
+
+has _docfiles => (
+    traits => ['Array'], is => 'rw', lazy_build => 1, isa => 'ArrayRef[Str]',
+    handles => {
+        docfiles           => 'elements',
+        has_docfiles       => 'count',
+        no_docfiles        => 'is_empty',
+        docfiles_as_string => [ join => "\n" ],
+    },
+);
 
 has _changelog => (
     traits => [ 'MooseX::AttributeHelpers::Trait::Collection::Array' ],
@@ -183,27 +193,18 @@ sub _build__changelog      { die 'not implemented' }
 sub _build__build_requires { die 'not implemented!' }
 sub _build__requires       { die 'not implemented!' }
 
-sub _build_docfiles {
+sub _build__docfiles {
     my $self = shift @_;
 
-    warn 'unimplemented';
-    return [];
+    #my $dir = $self->extract_dir;
 
-    # look at everything in the root of the tarball, see if we should include
-    # it
-    my $dir = $self->extract_dir;
-    my @files;
+    my @docfiles =
+        grep { /(README|Change(s|log)|LICENSE|Copyright|ex|examples|doc(s))$/i }
+        map { basename $_ }
+        @{ $self->module->status->files }
+        ;
 
-    while (my $obj = $dir->next) {
-
-        if ($obj->is_dir) {
-
-            # ...
-        }
-
-    }
-
-    return \@files;
+    return \@docfiles;
 }
 
 sub _build__additional_deps {
@@ -227,6 +228,94 @@ sub _build__additional_deps {
     }
 
     return [];
+}
+
+#############################################################################
+# Additional helper bits (not quite spec generation, etc)
+
+# _suspect_requires is a list of requires that are often included as a
+# "requires" (especially in older EU::MM based Makefile.PL's) but in reality
+# are only needed during testing.
+
+has _suspect_requires => (
+    traits => [ 'Hash' ],
+    is => 'ro', isa => 'HashRef', lazy_build => 1,
+
+    handles => {
+        suspect_requires     => 'elements',
+        has_suspect_requires => 'count',
+        no_suspect_requires  => 'is_empty',
+        is_suspect_require   => 'exists',
+    },
+);
+
+sub _build__suspect_requires {
+    my $self = shift @_;
+
+    return {
+        # "build" modules
+        'perl(ExtUtils::MakeMaker)' => 1,
+
+        # testing modules
+        'perl(Test::Exception)' => 1,
+        'perl(Test::More)'      => 1,
+        'perl(Test::Simple)'    => 1,
+        'perl(Test::Pod)'       => 1,
+        #'perl(Test::)' => 1,
+    };
+}
+
+# A list of macros we should include before the initial %description
+
+has _macros => (
+    traits => [ 'Array' ],
+    is => 'ro', isa => 'ArrayRef', lazy_build => 1,
+
+    handles => {
+        macros => 'elements',
+        has_macros => 'count',
+        no_macros => 'is_empty',
+        macros_as_string => [ join => "\n" ],
+    },
+);
+
+# FIXME TODO this entire section needs to be done in tt2
+sub _build__macros {
+    my $self = shift @_;
+
+    # Bad! FIXME
+    my $excludes = $self->mm->_meta->[0]->{no_index};
+
+    my $default = [
+        '%{?perl_default_filter}',
+        '%{?perl_default_subpackage_tests}',
+    ];
+
+    return $default unless $excludes;
+
+    my $libdir = $self->is_noarch ? '%{perl_vendorlib}' : '%{perl_vendorlib}';
+
+    my @by_dir =
+        map  { "%filter_provides_in $_" }
+        map  { s!^lib/!!; "$libdir/$_"  }
+        grep { /^lib/                   }
+        @{$excludes->{directory}}
+        ;
+    my @by_pkg =
+        map { "%filter_from_provides /^perl($_)/d" }
+        @{$excludes->{package}}
+        ;
+
+    return $default unless @by_dir > 0 || @by_pkg > 0;
+
+    my @lines = ('%{?perl_default_filter:');
+    push @lines, @by_dir, @by_pkg,
+        '%perl_default_filter',
+        '}',
+        '%{?perl_default_subpackage_tests}',
+        ;
+
+    return \@lines;
 }
 
 #############################################################################

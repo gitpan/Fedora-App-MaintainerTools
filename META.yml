@@ -23,54 +23,54 @@ no_index:
 provides:
   CPAN::MetaMuncher:
     file: lib/CPAN/MetaMuncher.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools:
     file: lib/Fedora/App/MaintainerTools.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Command::ftbfs:
     file: lib/Fedora/App/MaintainerTools/Command/ftbfs.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Command::newspec:
     file: lib/Fedora/App/MaintainerTools/Command/newspec.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Command::privaterepo:
     file: lib/Fedora/App/MaintainerTools/Command/privaterepo.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Command::updates:
     file: lib/Fedora/App/MaintainerTools/Command/updates.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Command::updatespec:
     file: lib/Fedora/App/MaintainerTools/Command/updatespec.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::LocalRepo:
     file: lib/Fedora/App/MaintainerTools/LocalRepo.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Role::Bugzilla:
     file: lib/Fedora/App/MaintainerTools/Role/Bugzilla.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Role::Logger:
     file: lib/Fedora/App/MaintainerTools/Role/Logger.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Role::SpecUtils:
     file: lib/Fedora/App/MaintainerTools/Role/SpecUtils.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::Role::Template:
     file: lib/Fedora/App/MaintainerTools/Role/Template.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::SpecData:
     file: lib/Fedora/App/MaintainerTools/SpecData.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::SpecData::New:
     file: lib/Fedora/App/MaintainerTools/SpecData/New.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::SpecData::Update:
     file: lib/Fedora/App/MaintainerTools/SpecData/Update.pm
-    version: 0.004
+    version: 0.005
   Fedora::App::MaintainerTools::SpecData::Update::Traits::NixPerlInstallRoot:
     file: lib/Fedora/App/MaintainerTools/SpecData/Update/Traits/NixPerlInstallRoot.pm
   Fedora::App::MaintainerTools::Types:
     file: lib/Fedora/App/MaintainerTools/Types.pm
-    version: 0.004
+    version: 0.005
 requires:
   CPANPLUS::Backend: 0
   DateTime: 0
@@ -100,4 +100,4 @@ resources:
   homepage: http://github.com/RsrchBoy/fedora-app-maintainertools/tree
   license: http://dev.perl.org/licenses/
   repository: git://github.com/RsrchBoy/fedora-app-maintainertools.git
-version: 0.004
+version: 0.005

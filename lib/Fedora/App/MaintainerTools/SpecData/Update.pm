@@ -31,7 +31,7 @@ use RPM::VersionSort;
 
 extends 'Fedora::App::MaintainerTools::SpecData';
 
-our $VERSION = '0.004';
+our $VERSION = '0.005';
 
 # debugging
 #use Smart::Comments '###', '####';
@@ -43,7 +43,6 @@ has spec => (is => 'ro', isa => 'RPM::Spec', required => 1, coerce => 1);
 
 sub _build_name    { shift->spec->name }
 sub _build_license { warn 'not checking license'; shift->spec->license }
-sub _build_version { shift->mm->data->{version} }
 sub _build_summary { shift->spec->summary }
 sub _build_url     { shift->spec->url }
 
@@ -51,6 +50,18 @@ sub _build_dist    { (my $_ = shift->name) =~ s/^perl-//; s/\s*$//; $_ }
 
 sub _build__changelog {
     [ "- update by Fedora::App::MaintainerTools $Fedora::App::MaintainerTools::VERSION" ]
+}
+
+sub _build_version {
+    my $self = shift @_;
+
+    my $new = $self->mm->data->{version};
+    my $old = $self->spec->version;
+
+    $self->add_changelog("- updating to latest GA CPAN version ($new)")
+        if $new ne $old;
+
+    return $new;
 }
 
 #############################################################################
@@ -68,6 +79,15 @@ sub _build_epoch   {
     # epoch checking
 
     my ($old_v, $v) = ($self->spec->version, $self->version);
+
+    if ($old_v eq $v) {
+
+        # if they're actually equivalent, that means we're updating a spec
+        # file that doesn't have a new upstream release.  Don't touch the
+        # epoch, but do bump the requires by one.
+        $self->release($self->spec->release + 1);
+        return;
+    }
 
     if (rpmvercmp($old_v, $v) == 1) {
 
@@ -131,6 +151,13 @@ sub _build__build_requires {
         push @cl, "- added a new br on $br (version $new)";
     }
 
+    # Ensure that EU::MM is _always_ BR'ed
+    unless (exists $brs{'perl(ExtUtils::MakeMaker)'}) {
+
+        $brs{'perl(ExtUtils::MakeMaker)'} = 0;
+        push @cl, '- force-adding ExtUtils::MakeMaker as a BR';
+    }
+
     # delete stale build requirements
     PURGE_BR_LOOP:
     #for my $br ($data->build_requires) {
@@ -141,6 +168,7 @@ sub _build__build_requires {
             if $br !~ /^perl\(/ || $br eq 'perl(CPAN)';
 
         next PURGE_BR_LOOP if $br =~ /^perl\(:MODULE_COMPAT/;
+        next PURGE_BR_LOOP if $br eq 'perl(ExtUtils::MakeMaker)';
         next PURGE_BR_LOOP if exists $data->conf->{add_build_requires}->{$br};
 
         # check to see META.yml lists it as a dep.  if not, purge.
@@ -193,6 +221,16 @@ sub _build__requires {
     for my $r (sort $mm->rpm_requires) {
 
         my $new = $mm->rpm_require_version($r);
+
+        if ($self->is_suspect_require($r)) {
+
+            next NEW_REQ_LOOP if $self->has_build_require($r);
+
+            $self->build_require_this($r => $new);
+            $self->add_changelog("- suspect requires as BR ($r $new)");
+            next NEW_REQ_LOOP;
+        }
+
 
         #if ($data->has_require($r)) {
         if (exists $require{$r}) {
@@ -269,6 +307,28 @@ sub _build_middle {
 }
 
 sub _suspect_req { shift =~ /^perl\(Test::/ }
+
+#############################################################################
+# RPM metadata filtering (and other) macros
+
+around _build__macros => sub {
+    my ($orig, $self) = @_;
+
+    my @macros = @{ $self->$orig() };
+
+    return \@macros unless exists $self->conf->{metadata_filtering};
+
+    # FIXME we need to switch to Config::MVP or some such, that allows
+    # multiple values in the conf file.
+
+    my $filters = $self->conf->{metadata_filtering};
+    for my $macro (sort keys %$filters) {
+
+        unshift @macros, '%{?' . $macro . ': %' . "$macro $filters->{$macro} }";
+    }
+
+    return \@macros;
+};
 
 #############################################################################
 # Generate our template
