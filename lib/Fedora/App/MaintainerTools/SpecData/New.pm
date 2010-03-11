@@ -33,7 +33,7 @@ use Text::Autoformat;
 
 extends 'Fedora::App::MaintainerTools::SpecData';
 
-our $VERSION = '0.005';
+our $VERSION = '0.006';
 
 # debugging
 #use Smart::Comments '###', '####';
@@ -63,7 +63,7 @@ sub _build_summary { shift->mm->data->{abstract} }
 #############################################################################
 # description
 
-has description => (is => 'rw', isa => Str, lazy_build => 1);
+#has description => (is => 'rw', isa => Str, lazy_build => 1);
 
 # this is largely stolen from CPANPLUS::Dist::RPM...  in need of some serious
 # refactoring but works for now.
@@ -110,7 +110,7 @@ sub _build_description {
            my @paragraphs = (split /\n\n/, $text)[0..2];
             #$text = join "\n\n", @paragraphs;
             $text = q{};
-            for my $para (@paragraphs) { $text .= $para }
+            for my $para (@paragraphs) { $text .= $para || ''}
 
             # autoformat and return...
             return autoformat $text, { all => 1 };
